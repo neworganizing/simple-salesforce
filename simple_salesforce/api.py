@@ -676,7 +676,7 @@ class SFType(object):
         )
         return result.json(object_pairs_hook=OrderedDict)
 
-    def create(self, data, headers=None):
+    def create(self, data, headers=None, files=None):
         """Creates a new SObject using a POST to `.../{object_name}/`.
 
         Returns a dict decoded from the JSON payload returned by Salesforce.
@@ -686,11 +686,21 @@ class SFType(object):
         * data -- a dict of the data to create the SObject from. It will be
                   JSON-encoded before being transmitted.
         * headers -- a dict with additional request headers.
+        * files -- a dict of the data to create the SObject from. It is used
+                   for multipart uploads using the files parameter to
+                   requests.request
         """
-        result = self._call_salesforce(
-            method='POST', url=self.base_url,
-            data=json.dumps(data), headers=headers
-        )
+        result = None
+        if files:
+            result = self._call_salesforce(
+                method='POST', url=self.base_url,
+                files=files, headers=headers
+            )
+        else:
+            result = self._call_salesforce(
+                method='POST', url=self.base_url,
+                data=json.dumps(data), headers=headers
+            )
         return result.json(object_pairs_hook=OrderedDict)
 
     def upsert(self, record_id, data, raw_response=False, headers=None):
@@ -814,6 +824,8 @@ class SFType(object):
         }
         additional_headers = kwargs.pop('headers', dict())
         headers.update(additional_headers or dict())
+        if additional_headers and additional_headers.get('Content-Type') == '':
+            headers.pop('Content-Type')
         result = self.session.request(method, url, headers=headers, **kwargs)
 
         if result.status_code >= 300:

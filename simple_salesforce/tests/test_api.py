@@ -2,6 +2,13 @@
 
 import re
 from datetime import datetime
+import json
+
+try:
+    # Python 2.6
+    from StringIO import StringIO as BytesIO
+except ImportError:
+    from io import BytesIO
 
 from collections import OrderedDict
 
@@ -31,8 +38,6 @@ from simple_salesforce.api import (
     Usage,
     PerAppUsage
 )
-
-
 
 def _create_sf_type(
     object_name='Case',
@@ -756,3 +761,52 @@ class TestSalesforce(unittest.TestCase):
         result = client.limits()
 
         self.assertEqual(result, tests.ORGANIZATION_LIMITS_RESPONSE)
+
+    @responses.activate
+    def test_create_string_attachment(self):
+        """
+        Test creating a non-binary (string) attachment.
+        """
+        data = {"Name":"attachment.txt",
+             "body":"this is the body of the document"}
+        responses.add(
+            responses.POST,
+            re.compile(r'^https://.*/Attachment/$'),
+            body='{}',
+            status=http.OK
+        )
+
+        sf_type = _create_sf_type(object_name='Attachment')
+        # pylint: disable=unused-variable
+        result = sf_type.create(data=data)
+        request_headers = responses.calls[0].request.headers
+        self.assertEqual(request_headers['Content-Type'], 'application/json')
+
+    @responses.activate
+    def test_create_binary_attachment(self):
+        """
+        Test creation of a binary attachment. This requires a multi-part upload.
+        """
+        attachment_object = BytesIO()
+        attachment_object.write(b'\xFFFF\xAAAA\xBBBB')
+        attachment_object.seek(0)
+        files = {'Body': ('filename.png', attachment_object, 'image/png'),
+                 'entity_document': (None, json.dumps({'Name':'my photo'}),
+                                     'application/json')}
+        responses.add(
+            responses.POST,
+            re.compile(r'^https://.*/Attachment/$'),
+            body='{}',
+            status=http.OK
+        )
+
+        sf_type = _create_sf_type(object_name='Attachment')
+        # Note it is important to send the zero-length string as Conent-Type
+        # for the default 'application/json' header to be replaced with
+        # 'multipart/form-data'.
+        # pylint: disable=unused-variable
+        result = sf_type.create(
+            data=None, files=files, headers={'Content-Type':''})
+        request_headers = responses.calls[0].request.headers
+        self.assertEqual(
+            request_headers['Content-Type'][:19], 'multipart/form-data')
