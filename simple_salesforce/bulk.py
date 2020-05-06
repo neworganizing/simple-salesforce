@@ -149,16 +149,18 @@ class SFBulkType:
                                     batch_id, '/result')
 
         result = call_salesforce(url=url, method='GET', session=self.session,
-                                  headers=self.headers)
+                                 headers=self.headers)
 
         if operation == 'query':
-            url_query_results = "{}{}{}".format(url, '/', result.json()[0])
-            query_result = call_salesforce(url=url_query_results, method='GET',
-                                            session=self.session,
-                                            headers=self.headers)
-            return query_result.json()
+            for batch_result in result.json():
+                url_query_results = "{}{}{}".format(url, '/', batch_result)
+                yield call_salesforce(url=url_query_results,
+                                      method='GET',
+                                      session=self.session,
+                                      headers=self.headers).json()
 
-        return result.json()
+        else:
+            yield result.json()
 
     #pylint: disable=R0913
     def _bulk_operation(self, object_name, operation, data,

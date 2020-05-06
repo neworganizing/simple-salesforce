@@ -93,3 +93,5 @@ ORGANIZATION_LIMITS_RESPONSE = {
     "SingleEmail": {"Max": 15, "Remaining": 15},
     "StreamingApiConcurrentClients": {"Max": 20, "Remaining": 20},
 }
+
+RESULT_OUTPUT = """["7520y0000061ADL", "7520y0000061ADQ", "7520y0000061ADa"]"""
