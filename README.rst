@@ -11,7 +11,9 @@ Simple Salesforce
 
 Simple Salesforce is a basic Salesforce.com REST API client built for Python 3.5, 3.6, 3.7 and 3.8. The goal is to provide a very low-level interface to the REST Resource and APEX API, returning a dictionary of the API JSON response.
 
+
 =============
+
 
 You can find out more regarding the format of the results in the `Official Salesforce.com REST API Documentation`_
 
@@ -229,7 +231,9 @@ More details about syntax is available on the `Salesforce Query Language Documen
 .. _Salesforce Query Language Documentation Developer Website: http://www.salesforce.com/us/developer/docs/soql_sosl/index.htm
 
 File Based Metadata API Calls
+
 -----------------------------
+
 
 You can use simple_salesforce to make file-based calls to the Metadata API, to deploy a zip file to an org.
 
@@ -271,6 +275,7 @@ Example of a use-case:
    successful = False
 
    sf = Salesforce(session_id="id", instance="instance")
+
    sf.deploy("path/to/zip", sandbox=False ,**kwargs)
 
    while not deployment_finished:
@@ -278,6 +283,7 @@ Example of a use-case:
        if result.get('status') in ["Succeeded", "Completed", "Error", "Failed", None]:
            deployment_finished = True
        if result.get('status') in ["Succeeded", "Completed"]:
+
            successful = True
 
    if successful:

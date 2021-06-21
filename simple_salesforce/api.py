@@ -615,6 +615,7 @@ class Salesforce:
 
         Returns status of the deployment the asyncId given.
         """
+
         mdapi = SfdcMetadataApi(session=self.session,
                                 session_id=self.session_id,
                                 instance=self.sf_instance,
@@ -630,10 +631,9 @@ class Salesforce:
             'state_detail': state_detail,
             'deployment_detail': deployment_detail,
             'unit_test_detail': unit_test_detail
-        }
+                    }
 
         return results
-
 
 class SFType:
     """An interface to a specific type of SObject"""

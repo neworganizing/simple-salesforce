@@ -110,6 +110,7 @@ class SfdcMetadataApi:
         :return:
         :rtype:
         """
+
         if hasattr(zipfile, 'read'):
             file = zipfile
             file.seek(0)
@@ -160,6 +161,45 @@ class SfdcMetadataApi:
             raise Exception("Result node could not be found: %s" % res.text)
 
         return result
+    
+    def _retrieve_deploy_result_steven(self, async_process_id, **kwargs):
+        """ Retrieves status for specified deployment id
+        :param async_process_id:
+        :type async_process_id:
+        :param kwargs:
+        :type kwargs:
+        :return:
+        :rtype:
+        """
+        client = kwargs.get('client', 'simple_salesforce_metahelper')
+
+        attributes = {
+            'client': client,
+            'sessionId': self._session_id,
+            'asyncProcessId': async_process_id,
+            'includeDetails': 'true'
+            }
+        mt_request = CHECK_DEPLOY_STATUS_MSG.format(**attributes)
+        headers = {
+            'Content-type': 'text/xml', 'SOAPAction': 'checkDeployStatus'
+            }
+
+        res = call_salesforce(
+            url=self.metadata_url + 'deployRequest/' + async_process_id,
+            method='POST',
+            session=self.session,
+            headers=self.headers,
+            additional_headers=headers,
+            data=mt_request)
+
+        root = ET.fromstring(res.text)
+        result = root.find(
+            'soapenv:Body/mt:checkDeployStatusResponse/mt:result',
+            self._XML_NAMESPACES)
+        if result is None:
+            raise Exception("Result node could not be found: %s" % res.text)
+
+        return root
 
     @staticmethod
     def get_component_error_count(value):
@@ -179,13 +219,12 @@ class SfdcMetadataApi:
         :return:
         :rtype:
         """
-        result = self._retrieve_deploy_result(async_process_id, **kwargs)
-
+        # result = self._retrieve_deploy_result(async_process_id, **kwargs)
+        result = self._retrieve_deploy_result_steven(async_process_id, **kwargs)
         state = result.find('mt:status', self._XML_NAMESPACES).text
         state_detail = result.find('mt:stateDetail', self._XML_NAMESPACES)
         if state_detail is not None:
             state_detail = state_detail.text
-
         unit_test_errors = []
         deployment_errors = []
         failed_count = self.get_component_error_count(
@@ -220,15 +259,18 @@ class SfdcMetadataApi:
                                                 self._XML_NAMESPACES).text
                     })
 
-        deployment_detail = {
-            'total_count': result.find('mt:numberComponentsTotal',
-                                       self._XML_NAMESPACES).text,
-            'failed_count': result.find('mt:numberComponentErrors',
-                                        self._XML_NAMESPACES).text,
-            'deployed_count': result.find('mt:numberComponentsDeployed',
-                                          self._XML_NAMESPACES).text,
-            'errors': deployment_errors
-            }
+        # deployment_detail = {
+        #     'total_count': result.find('mt:numberComponentsTotal',
+        #                                self._XML_NAMESPACES).text,
+        #     'failed_count': result.find('mt:numberComponentErrors',
+        #                                 self._XML_NAMESPACES).text,
+        #     'deployed_count': result.find('mt:numberComponentsDeployed',
+        #                                   self._XML_NAMESPACES).text,
+        #     'checkOnly': result.find('mt:checkOnly',
+        #                                 self._XML_NAMESPACES).text,
+        #     'errors': deployment_errors,
+        #     }
+        deployment_detail = result
         unit_test_detail = {
             'total_count': result.find('mt:numberTestsTotal',
                                        self._XML_NAMESPACES).text,
@@ -238,7 +280,6 @@ class SfdcMetadataApi:
                                            self._XML_NAMESPACES).text,
             'errors': unit_test_errors
             }
-
         return state, state_detail, deployment_detail, unit_test_detail
 
     def download_unit_test_logs(self, async_process_id):
@@ -329,7 +370,7 @@ class SfdcMetadataApi:
         if result is None:
             raise Exception("Result node could not be found: %s" % res.text)
 
-        return result
+        return root
 
     def retrieve_zip(self, async_process_id, **kwargs):
         """ Retrieves ZIP file """
@@ -349,7 +390,6 @@ class SfdcMetadataApi:
                 'file': message.find('mt:fileName', self._XML_NAMESPACES).text,
                 'message': message.find('mt:problem', self._XML_NAMESPACES).text
                 })
-
         # Retrieve base64 encoded ZIP file
         zipfile_base64 = result.find('mt:zipFile', self._XML_NAMESPACES).text
         zipfile = b64decode(zipfile_base64)
@@ -374,5 +414,6 @@ class SfdcMetadataApi:
                 'file': message.find('mt:fileName', self._XML_NAMESPACES).text,
                 'message': message.find('mt:problem', self._XML_NAMESPACES).text
                 })
-
+            
         return state, error_message, messages
+  

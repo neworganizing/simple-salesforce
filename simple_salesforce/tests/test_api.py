@@ -5,7 +5,7 @@ import re
 import unittest
 from collections import OrderedDict
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import requests
 import responses
