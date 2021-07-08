@@ -31,6 +31,7 @@ class Salesforce:
     An instance of Salesforce is a handy way to wrap a Salesforce session
     for easy use of the Salesforce REST API.
     """
+    _parse_float = None
 
     # pylint: disable=too-many-arguments,too-many-locals,too-many-branches
     def __init__(
@@ -50,6 +51,7 @@ class Salesforce:
             consumer_key=None,
             privatekey_file=None,
             privatekey=None,
+            parse_float=None,
             ):
 
         """Initialize the instance with the given parameters.
@@ -95,7 +97,8 @@ class Salesforce:
         * session -- Custom requests session, created in calling code. This
                      enables the use of requests Session features not otherwise
                      exposed by simple_salesforce.
-
+        * parse_float -- Function to parse float values with. Is passed along to
+                         https://docs.python.org/3/library/json.html#json.load
         """
 
         if domain is None:
@@ -204,6 +207,8 @@ class Salesforce:
 
         self.api_usage = {}
 
+        self._parse_float = parse_float
+
     def describe(self, **kwargs):
         """Describes all available objects
 
@@ -214,7 +219,7 @@ class Salesforce:
         url = self.base_url + "sobjects"
         result = self._call_salesforce('GET', url, name='describe', **kwargs)
 
-        json_result = result.json(object_pairs_hook=OrderedDict)
+        json_result = self.parse_result_to_json(result)
         if len(json_result) == 0:
             return None
 
@@ -288,7 +293,7 @@ class Salesforce:
                                          result.status_code,
                                          'User',
                                          result.content)
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
 
     # Generic Rest Function
@@ -308,7 +313,7 @@ class Salesforce:
         result = self._call_salesforce(method, url, name=path, params=params,
                                        **kwargs)
 
-        json_result = result.json(object_pairs_hook=OrderedDict)
+        json_result = self.parse_result_to_json(result)
         if len(json_result) == 0:
             return None
 
@@ -330,7 +335,7 @@ class Salesforce:
         params = {'q': search}
         result = self._call_salesforce('GET', url, name='search', params=params)
 
-        json_result = result.json(object_pairs_hook=OrderedDict)
+        json_result = self.parse_result_to_json(result)
         if len(json_result) == 0:
             return None
 
@@ -359,7 +364,7 @@ class Salesforce:
         if result.status_code != 200:
             exception_handler(result)
 
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     # Query Handler
     def query(self, query, include_deleted=False, **kwargs):
@@ -378,7 +383,7 @@ class Salesforce:
         result = self._call_salesforce('GET', url, name='query',
                                        params=params, **kwargs)
 
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     def query_more(
             self, next_records_identifier, identifier_is_url=False,
@@ -412,7 +417,7 @@ class Salesforce:
                              next_record_id=next_records_identifier)
         result = self._call_salesforce('GET', url, name='query_more', **kwargs)
 
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     def query_all_iter(self, query, include_deleted=False, **kwargs):
         """This is a lazy alternative to `query_all` - it does not construct
@@ -631,12 +636,17 @@ class Salesforce:
             'deployment_detail': deployment_detail,
             'unit_test_detail': unit_test_detail
         }
-
         return results
+
+    def parse_result_to_json(self, result):
+        """"Parse json from a Response object"""
+        return result.json(object_pairs_hook=OrderedDict,
+                           parse_float=self._parse_float)
 
 
 class SFType:
     """An interface to a specific type of SObject"""
+    _parse_float = None
 
     # pylint: disable=too-many-arguments
     def __init__(
@@ -647,6 +657,7 @@ class SFType:
             sf_version=DEFAULT_API_VERSION,
             proxies=None,
             session=None,
+            parse_float=None,
     ):
         """Initialize the instance with the given parameters.
 
@@ -661,6 +672,8 @@ class SFType:
         * session -- Custom requests session, created in calling code. This
                      enables the use of requests Session features not otherwise
                      exposed by simple_salesforce.
+        * parse_float -- Function to parse float values with. Is passed along to
+                         https://docs.python.org/3/library/json.html#json.load
         """
         self.session_id = session_id
         self.name = object_name
@@ -676,6 +689,8 @@ class SFType:
                                      object_name=object_name,
                                      sf_version=sf_version))
 
+        self._parse_float = parse_float
+
     def metadata(self, headers=None):
         """Returns the result of a GET to `.../{object_name}/` as a dict
         decoded from the JSON payload returned by Salesforce.
@@ -685,7 +700,7 @@ class SFType:
         * headers -- a dict with additional request headers.
         """
         result = self._call_salesforce('GET', self.base_url, headers=headers)
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     def describe(self, headers=None):
         """Returns the result of a GET to `.../{object_name}/describe` as a
@@ -699,7 +714,7 @@ class SFType:
             method='GET', url=urljoin(self.base_url, 'describe'),
             headers=headers
         )
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     def describe_layout(self, record_id, headers=None):
         """Returns the layout of the object
@@ -721,7 +736,7 @@ class SFType:
             url=urljoin(self.base_url, custom_url_part),
             headers=headers
         )
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     def get(self, record_id, headers=None):
         """Returns the result of a GET to `.../{object_name}/{record_id}` as a
@@ -736,7 +751,7 @@ class SFType:
             method='GET', url=urljoin(self.base_url, record_id),
             headers=headers
         )
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     def get_by_custom_id(self, custom_id_field, custom_id, headers=None):
         """Return an ``SFType`` by custom ID
@@ -760,7 +775,7 @@ class SFType:
         result = self._call_salesforce(
             method='GET', url=custom_url, headers=headers
         )
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     def create(self, data, headers=None):
         """Creates a new SObject using a POST to `.../{object_name}/`.
@@ -777,7 +792,7 @@ class SFType:
             method='POST', url=self.base_url,
             data=json.dumps(data), headers=headers
         )
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     def upsert(self, record_id, data, raw_response=False, headers=None):
         """Creates or updates an SObject using a PATCH to
@@ -866,7 +881,7 @@ class SFType:
             )
         )
         result = self._call_salesforce(method='GET', url=url, headers=headers)
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     def updated(self, start, end, headers=None):
         # pylint: disable=line-too-long
@@ -888,7 +903,7 @@ class SFType:
             )
         )
         result = self._call_salesforce(method='GET', url=url, headers=headers)
-        return result.json(object_pairs_hook=OrderedDict)
+        return self.parse_result_to_json(result)
 
     def _call_salesforce(self, method, url, **kwargs):
         """Utility method for performing HTTP call to Salesforce.
@@ -924,3 +939,8 @@ class SFType:
             return response.status_code
 
         return response
+
+    def parse_result_to_json(self, result):
+        """"Parse json from a Response object"""
+        return result.json(object_pairs_hook=OrderedDict,
+                           parse_float=self._parse_float)
